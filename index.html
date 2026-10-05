@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Card Pack</title>
+<style>
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(255,255,255,.35) 0 60px, transparent 62px),
+      radial-gradient(circle at 82% 30%, rgba(255,200,225,.45) 0 90px, transparent 92px),
+      radial-gradient(circle at 70% 82%, rgba(255,255,255,.28) 0 70px, transparent 72px),
+      radial-gradient(circle at 25% 80%, rgba(255,170,205,.4) 0 110px, transparent 112px),
+      radial-gradient(ellipse at 50% 40%, #ffd3e4 0%, #f7a3c4 55%, #d96a9c 100%);
+    font-family: Georgia, "Times New Roman", serif;
+    color: #fff;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+  }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+
+  /* ---------- PACK ---------- */
+  #pack {
+    position: absolute; width: 260px; height: 420px;
+    transform: scale(1);
+    transition: transform 1.15s cubic-bezier(.5, 0, .15, 1);
+    cursor: pointer;
+  }
+  #pack.zooming, #pack.ready { cursor: default; }
+  .float { width: 100%; height: 100%; position: relative; animation: bob 3s ease-in-out infinite; }
+  #pack.zooming .float, #pack.ready .float, #pack.opening .float { animation: none; }
+  @keyframes bob { 50% { transform: translateY(-12px) rotate(-1.2deg); } }
+
+  .foil {
+    position: absolute; left: 0; width: 100%;
+    background:
+      linear-gradient(115deg, transparent 32%, rgba(255,255,255,.55) 46%, transparent 60%) 0 0 / 250% 100%,
+      radial-gradient(circle at 20% 15%, rgba(255,255,255,.55) 0 3px, transparent 4px) 0 0 / 46px 46px,
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.4) 0 2px, transparent 3px) 0 0 / 38px 38px,
+      linear-gradient(165deg, #ffc2da 0%, #ff8fbb 40%, #f2589a 75%, #ffa6c9 100%);
+    animation: sheen 3.4s linear infinite;
+  }
+  @keyframes sheen { from { background-position: 150% 0, 0 0, 0 0, 0 0; } to { background-position: -100% 0, 0 0, 0 0, 0 0; } }
+
+  #top { top: 0; height: 56px; border-radius: 18px 18px 0 0; transform-origin: 100% 100%;
+         transition: transform .9s cubic-bezier(.3,.6,.3,1), opacity .9s; z-index: 3; }
+  #top::before, #body::after {
+    content: ""; position: absolute; left: 0; right: 0; height: 10px;
+    background: repeating-linear-gradient(90deg, rgba(190,40,110,.35) 0 3px, rgba(255,255,255,.4) 3px 6px);
+  }
+  #top::before { top: 0; border-radius: 18px 18px 0 0; }
+  #body { top: 56px; height: 364px; border-radius: 0 0 18px 18px;
+          transition: transform .9s cubic-bezier(.5,0,.8,.4), opacity .7s; z-index: 2;
+          display: grid; place-items: center; text-align: center; }
+  #body::after { bottom: 0; top: auto; border-radius: 0 0 18px 18px; }
+  #pack { filter: drop-shadow(0 22px 28px rgba(150,30,90,.45)); }
+
+  .for {
+    font-size: 40px; font-style: italic; letter-spacing: .02em; color: #fff;
+    text-shadow: 0 2px 0 rgba(190,40,110,.35), 0 6px 18px rgba(190,40,110,.5);
+  }
+  .for .heart { display: inline-block; font-style: normal; animation: beat 1.4s ease-in-out infinite; }
+  @keyframes beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.25); } 30% { transform: scale(1); } 45% { transform: scale(1.15); } }
+  /* soft gloss band */
+  #body::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(105deg, transparent 0 18%, rgba(255,255,255,.22) 18% 30%, transparent 30% 36%, rgba(255,255,255,.12) 36% 40%, transparent 40%); }
+
+  /* seam + handle */
+  #seam { position: absolute; left: 0; width: 100%; top: 55px; height: 2px; z-index: 5;
+          opacity: 0; transition: opacity .5s; pointer-events: none; }
+  #pack.ready #seam { opacity: 1; }
+  #seam .dash { position: absolute; inset: 0;
+    background: repeating-linear-gradient(90deg, #fff 0 8px, transparent 8px 14px);
+    filter: drop-shadow(0 0 4px #fff); animation: march 1s linear infinite; }
+  @keyframes march { to { background-position: 14px 0; } }
+  #seam .torn { position: absolute; left: 0; top: -2px; height: 6px; width: 0;
+    background: linear-gradient(90deg, #fff, #ffd1e6); box-shadow: 0 0 14px 4px rgba(255,240,250,.95); border-radius: 3px; }
+  #handle { position: absolute; top: 56px; left: 0; width: 44px; height: 44px; margin: -22px 0 0 -22px;
+    border-radius: 50%; background: #fff; color: #e0407f; display: grid; place-items: center;
+    font: bold 20px/1 system-ui, sans-serif; box-shadow: 0 0 0 0 rgba(255,255,255,.7); z-index: 6;
+    opacity: 0; pointer-events: none; cursor: grab; touch-action: none; animation: pulse 1.5s infinite; }
+  #pack.ready #handle { opacity: 1; pointer-events: auto; }
+  #handle.drag { animation: none; cursor: grabbing; }
+  @keyframes pulse { to { box-shadow: 0 0 0 16px rgba(255,255,255,0); } }
+  #hit { position: absolute; left: -30px; right: -30px; top: 36px; height: 40px; z-index: 5; display: none; touch-action: none; }
+  #pack.ready #hit { display: block; }
+
+  /* opening states */
+  #pack.opening #top { transform: translate(90px, -520px) rotate(38deg); opacity: 0; }
+  #pack.opening #body { transform: translateY(70%) scale(.9); opacity: 0; }
+  #pack.opening #seam, #pack.opening #handle { opacity: 0; }
+
+  #flash { position: absolute; width: 60px; height: 60px; border-radius: 50%; pointer-events: none; opacity: 0;
+           background: radial-gradient(circle, #fff 0%, rgba(255,190,220,.85) 35%, transparent 70%); }
+  #flash.go { animation: flash .9s ease-out forwards; }
+  @keyframes flash { 0% { opacity: 1; transform: scale(.5); } 100% { opacity: 0; transform: scale(30); } }
+  .spark { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fff;
+           box-shadow: 0 0 10px 3px rgba(255,120,175,.9); pointer-events: none; }
+
+  /* ---------- CARDS ---------- */
+  #cards { position: absolute; display: none; text-align: center; }
+  #cards.show { display: block; animation: rise .8s cubic-bezier(.2,.9,.3,1.2) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(80px) scale(.55) rotate(-6deg); } }
+  .deck { position: relative; height: min(76vh, 560px); aspect-ratio: 5 / 7; max-width: 86vw; cursor: pointer; margin: 0 auto; }
+  .card { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; background: #ffe3ee;
+          box-shadow: 0 18px 40px rgba(150,30,90,.45), 0 0 0 4px rgba(255,255,255,.7); }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .card .ph { position: absolute; inset: 0; display: none; place-items: center; font-size: 64px;
+              background: linear-gradient(160deg, #ff9fc6, #f2589a); color: #fff; }
+  .card.missing .ph { display: grid; }
+  .card.missing img { display: none; }
+  #back { transform: scale(.94) translateY(14px); filter: brightness(.85) saturate(.9); }
+  #front { transition: transform .35s ease, opacity .35s ease; }
+  #front.out { transform: translateX(-130%) rotate(-14deg); opacity: 0; }
+  #front.in { animation: pop .3s ease-out; }
+  @keyframes pop { from { transform: scale(.96); } }
+  /* card 10 special effect */
+  #front.finale { animation: glow 1.4s ease-in-out infinite; }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 18px 40px rgba(150,30,90,.45), 0 0 0 4px #fff, 0 0 30px 6px rgba(255,255,255,.7); }
+    50% { box-shadow: 0 18px 40px rgba(150,30,90,.45), 0 0 0 4px #fff, 0 0 70px 20px rgba(255,90,160,.95); }
+  }
+  #front.finale::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.6) 50%, transparent 65%) 0 0 / 250% 100%;
+    animation: sweep 1.8s ease-in-out infinite; }
+  @keyframes sweep { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+  .fx { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 20; will-change: transform, opacity; }
+  #count { margin-top: 18px; font-size: 16px; letter-spacing: .15em; opacity: .95; text-shadow: 0 1px 8px rgba(190,40,110,.5); }
+  #count span { display: block; font-size: 12px; opacity: .6; margin-top: 4px; letter-spacing: .08em; }
+
+  #hint { text-shadow: 0 1px 8px rgba(190,40,110,.5); position: fixed; left: 0; right: 0; bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+          text-align: center; font-size: 16px; letter-spacing: .06em; opacity: .8; transition: opacity .4s; pointer-events: none; }
+  #hint.hide { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) { .float, .foil, #seam .dash { animation: none !important; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="pack" role="button" aria-label="Open card pack" tabindex="0">
+    <div class="float">
+      <div id="body" class="foil">
+        <div class="for">For Mau <span class="heart">💗</span></div>
+      </div>
+      <div id="top" class="foil"></div>
+      <div id="seam"><div class="dash"></div><div class="torn"></div></div>
+      <div id="hit"></div>
+      <div id="handle" aria-label="Drag to tear open">›</div>
+    </div>
+  </div>
+
+  <div id="flash"></div>
+
+  <div id="cards">
+    <div class="deck" id="deck">
+      <div class="card" id="back"><img alt=""><div class="ph"></div></div>
+      <div class="card" id="front"><img alt=""><div class="ph"></div></div>
+    </div>
+    <div id="count"></div>
+  </div>
+</div>
+<div id="hint">Tap the pack to open it</div>
+
+<script>
+(() => {
+  const TOTAL = 10;
+  const DELAY = 1000; // ms before the next card can be revealed
+  const $ = id => document.getElementById(id);
+  const pack = $('pack'), handle = $('handle'), hit = $('hit'), torn = document.querySelector('.torn');
+  const top = $('top'), flash = $('flash'), cards = $('cards'), deck = $('deck');
+  const front = $('front'), back = $('back'), count = $('count'), hint = $('hint');
+
+  let phase = 'idle', target = 0, cur = 0, dragging = false, raf = 0, idx = 0, busy = false;
+
+  /* ----- phase 1: pack zooms toward the player ----- */
+  function openStart() {
+    if (phase !== 'idle') return;
+    phase = 'zoom';
+    pack.classList.add('zooming');
+    const s = Math.min(innerHeight * 0.86 / 420, innerWidth * 0.92 / 260, 2.6);
+    pack.style.transform = `scale(${s})`;
+    hint.classList.add('hide');
+    pack.addEventListener('transitionend', function done(e) {
+      if (e.target !== pack) return;
+      pack.removeEventListener('transitionend', done);
+      phase = 'tear';
+      pack.classList.add('ready');
+      hint.textContent = 'Drag along the seam to tear it open';
+      hint.classList.remove('hide');
+      loop();
+    });
+  }
+  pack.addEventListener('click', openStart);
+  pack.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openStart(); });
+
+  /* ----- phase 2: drag along the seam (smoothed) ----- */
+  function progressFrom(e) {
+    const r = pack.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  }
+  function startDrag(e) {
+    if (phase !== 'tear') return;
+    dragging = true; handle.classList.add('drag');
+    e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+    target = progressFrom(e);
+  }
+  [handle, hit].forEach(el => el.addEventListener('pointerdown', startDrag));
+  addEventListener('pointermove', e => { if (dragging) target = progressFrom(e); });
+  addEventListener('pointerup', () => {
+    if (!dragging) return;
+    dragging = false; handle.classList.remove('drag');
+    if (target < 0.92) target = 0; // spring back if released early
+  });
+
+  function loop() {
+    cur += (target - cur) * 0.22;           // easing = smooth sliding
+    if (Math.abs(target - cur) < 0.0005) cur = target;
+    const p = cur;
+    torn.style.width = (p * 100) + '%';
+    handle.style.left = (p * 100) + '%';
+    top.style.transform = `rotate(${-p * 7}deg) translateY(${-p * 5}px)`;
+    if (phase === 'tear' && target >= 0.92 && cur > 0.9) { burst(); return; }
+    raf = requestAnimationFrame(loop);
+  }
+
+  /* ----- phase 3: the opening animation ----- */
+  function burst() {
+    phase = 'open';
+    dragging = false;
+    top.style.transform = '';
+    pack.classList.remove('ready');
+    pack.classList.add('opening');
+    hint.classList.add('hide');
+    flash.classList.add('go');
+    for (let i = 0; i < 26; i++) {
+      const s = document.createElement('div');
+      s.className = 'spark';
+      const a = Math.random() * Math.PI * 2, d = 120 + Math.random() * Math.min(innerWidth, innerHeight) * 0.45;
+      document.getElementById('stage').appendChild(s);
+      s.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d}px) scale(0)`, opacity: 0 }
+      ], { duration: 700 + Math.random() * 500, easing: 'cubic-bezier(.1,.7,.3,1)' }).onfinish = () => s.remove();
+    }
+    setTimeout(showCards, 650);
+  }
+
+  /* ----- phase 4: cards ----- */
+  const src = i => `images/c${(i % TOTAL) + 1}.png`;
+  function setCard(el, i) {
+    const img = el.querySelector('img'), ph = el.querySelector('.ph');
+    el.classList.remove('missing');
+    ph.textContent = (i % TOTAL) + 1;
+    img.onerror = () => el.classList.add('missing');
+    img.src = src(i);
+  }
+  function render() {
+    setCard(front, idx); setCard(back, idx + 1);
+    count.innerHTML = `${idx + 1} / ${TOTAL}<span>Tap the card for the next one</span>`;
+    front.classList.toggle('finale', idx === TOTAL - 1);
+  }
+
+  /* ----- special effect: every time card 10 appears ----- */
+  function celebrate() {
+    const r = front.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const glyphs = ['💗', '💖', '💕', '✨', '🌸'];
+    const make = (txt, size) => {
+      const e = document.createElement('div');
+      e.className = 'fx'; e.textContent = txt; e.style.fontSize = size + 'px';
+      document.body.appendChild(e); return e;
+    };
+    // burst of hearts from the card
+    for (let i = 0; i < 30; i++) {
+      const e = make(glyphs[i % glyphs.length], 18 + Math.random() * 26);
+      const a = Math.random() * Math.PI * 2, d = 140 + Math.random() * Math.max(innerWidth, innerHeight) * 0.45;
+      e.animate([
+        { transform: `translate(${cx}px,${cy}px) scale(.2) rotate(0deg)`, opacity: 1 },
+        { transform: `translate(${cx + Math.cos(a) * d}px,${cy + Math.sin(a) * d}px) scale(1.1) rotate(${Math.random() * 360 - 180}deg)`, opacity: 1, offset: .7 },
+        { transform: `translate(${cx + Math.cos(a) * d * 1.1}px,${cy + Math.sin(a) * d * 1.1 + 60}px) scale(.8)`, opacity: 0 }
+      ], { duration: 1400 + Math.random() * 800, easing: 'cubic-bezier(.15,.8,.3,1)' }).onfinish = () => e.remove();
+    }
+    // gentle heart rain from the top
+    for (let i = 0; i < 26; i++) {
+      const e = make(glyphs[(i + 1) % glyphs.length], 16 + Math.random() * 22);
+      const x = Math.random() * innerWidth, sway = Math.random() * 80 - 40;
+      e.animate([
+        { transform: `translate(${x}px,-50px) rotate(0deg)`, opacity: 0 },
+        { opacity: 1, offset: .1 },
+        { transform: `translate(${x + sway}px,${innerHeight + 50}px) rotate(${Math.random() * 240 - 120}deg)`, opacity: .9 }
+      ], { duration: 2400 + Math.random() * 1800, delay: 300 + Math.random() * 1200, easing: 'ease-in', fill: 'backwards' }).onfinish = () => e.remove();
+    }
+    // soft pink pulse ring
+    const ring = document.createElement('div');
+    ring.className = 'fx';
+    ring.style.cssText = `width:80px;height:80px;border-radius:50%;border:4px solid #fff;box-shadow:0 0 30px 8px rgba(255,100,170,.8)`;
+    document.body.appendChild(ring);
+    ring.animate([
+      { transform: `translate(${cx - 40}px,${cy - 40}px) scale(.5)`, opacity: 1 },
+      { transform: `translate(${cx - 40}px,${cy - 40}px) scale(18)`, opacity: 0 }
+    ], { duration: 1100, easing: 'ease-out' }).onfinish = () => ring.remove();
+  }
+  function showCards() {
+    pack.style.display = 'none';
+    render();
+    cards.classList.add('show');
+    phase = 'cards';
+    busy = true;
+    setTimeout(() => { busy = false; }, DELAY);
+  }
+  deck.addEventListener('click', () => {
+    if (phase !== 'cards' || busy) return;
+    busy = true;
+    front.classList.add('out');
+    setTimeout(() => {
+      idx = (idx + 1) % TOTAL;          // loops 10 -> 1
+      front.style.transition = 'none';
+      front.classList.remove('out');
+      render();
+      void front.offsetWidth;
+      front.style.transition = '';
+      front.classList.add('in');
+      if (idx === TOTAL - 1) setTimeout(celebrate, 120);
+      setTimeout(() => front.classList.remove('in'), 300);
+      setTimeout(() => { busy = false; }, DELAY);
+    }, 340);
+  });
+
+  addEventListener('resize', () => {
+    if (phase === 'tear' || phase === 'zoom')
+      pack.style.transform = `scale(${Math.min(innerHeight * 0.86 / 420, innerWidth * 0.92 / 260, 2.6)})`;
+  });
+})();
+</script>
+</body>
+</html>
